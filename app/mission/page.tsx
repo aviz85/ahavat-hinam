@@ -1,0 +1,170 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase, OppositeMatch } from "@/lib/supabase";
+import { MAX_OPPOSITION } from "@/lib/questions";
+import BottomNav from "@/components/BottomNav";
+
+type Status = "loading" | "no-location" | "searching" | "found" | "empty" | "error";
+
+function fmtDistance(m: number) {
+  if (m < 1000) return `${Math.round(m)} מטר`;
+  return `${(m / 1000).toFixed(1)} ק"מ`;
+}
+
+export default function Mission() {
+  const router = useRouter();
+  const [status, setStatus] = useState<Status>("loading");
+  const [match, setMatch] = useState<OppositeMatch | null>(null);
+  const [errMsg, setErrMsg] = useState("");
+
+  const search = useCallback(async () => {
+    const sb = supabase();
+    const { data: sess } = await sb.auth.getSession();
+    if (!sess.session) {
+      router.replace("/");
+      return;
+    }
+    setStatus("searching");
+    if (!navigator.geolocation) {
+      setStatus("no-location");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const { error: locErr } = await sb.rpc("update_location", {
+            p_lat: latitude,
+            p_lng: longitude,
+          });
+          if (locErr) throw locErr;
+          const { data, error: findErr } = await sb.rpc("find_opposite", {
+            radius_m: 50000,
+          });
+          if (findErr) throw findErr;
+          if (data && data.length > 0) {
+            setMatch(data[0]);
+            setStatus("found");
+          } else {
+            setStatus("empty");
+          }
+        } catch (e) {
+          setErrMsg(e instanceof Error ? e.message : "שגיאה בחיפוש");
+          setStatus("error");
+        }
+      },
+      () => setStatus("no-location"),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }, [router]);
+
+  useEffect(() => {
+    search();
+  }, [search]);
+
+  const oppositionPct = match
+    ? Math.round((match.opposition / MAX_OPPOSITION) * 100)
+    : 0;
+
+  return (
+    <div className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center gap-5">
+        {status === "loading" || status === "searching" ? (
+          <>
+            <div className="text-6xl float">🔍</div>
+            <h1 className="text-2xl font-bold">מחפשים את ההפך שלך...</h1>
+            <p className="text-foreground/60">סורקים את הסביבה לפי GPS</p>
+          </>
+        ) : status === "no-location" ? (
+          <>
+            <div className="text-6xl">📍</div>
+            <h1 className="text-2xl font-bold">צריך גישה למיקום</h1>
+            <p className="max-w-xs text-foreground/70">
+              בלי GPS אי אפשר למצוא את מי שהפוך ממך בסביבה. אשרו גישה למיקום
+              בדפדפן ונסו שוב.
+            </p>
+            <button className="btn-primary" onClick={search}>
+              נסו שוב
+            </button>
+          </>
+        ) : status === "empty" ? (
+          <>
+            <div className="text-6xl float">🌵</div>
+            <h1 className="text-2xl font-bold">אין כרגע אף אחד בסביבה</h1>
+            <p className="max-w-xs text-foreground/70">
+              עדיין אין משתמשים אחרים ברדיוס 50 ק"מ. שתפו את האפליקציה עם מישהו
+              שחושב הפוך מכם 😉
+            </p>
+            <button className="btn-primary" onClick={search}>
+              רעננו חיפוש
+            </button>
+          </>
+        ) : status === "error" ? (
+          <>
+            <div className="text-6xl">😅</div>
+            <h1 className="text-2xl font-bold">משהו השתבש</h1>
+            <p className="text-foreground/60 text-sm">{errMsg}</p>
+            <button className="btn-primary" onClick={search}>
+              נסו שוב
+            </button>
+          </>
+        ) : match ? (
+          <>
+            <p className="text-lg font-medium text-rose-deep">
+              מצאנו את ההפך שלך! 🎯
+            </p>
+            <div className="card px-8 py-8 flex flex-col items-center gap-3 w-full max-w-sm">
+              <div className="text-7xl rounded-full bg-cream p-4 pulse-ring">
+                {match.emoji}
+              </div>
+              <h1 className="text-3xl font-black">{match.name}</h1>
+              <div className="flex gap-6 text-center">
+                <div>
+                  <div className="text-2xl font-black text-rose-deep">
+                    {oppositionPct}%
+                  </div>
+                  <div className="text-sm text-foreground/60">הפוכים בהשקפה</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-rose-deep">
+                    {fmtDistance(match.distance_m)}
+                  </div>
+                  <div className="text-sm text-foreground/60">מכאן</div>
+                </div>
+              </div>
+              <a
+                className="text-rose-deep font-bold underline"
+                href={`https://maps.google.com/maps?daddr=${match.lat},${match.lng}&dirflg=w`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                נווטו אליו 🧭
+              </a>
+            </div>
+            <p className="max-w-xs text-foreground/70">
+              המשימה: להגיע, להציג את עצמכם, לתת חיבוק אמיתי — ולצלם סלפי ביחד!
+            </p>
+            <button
+              className="btn-primary text-xl"
+              onClick={() => {
+                sessionStorage.setItem(
+                  "hug_target",
+                  JSON.stringify({ id: match.id, name: match.name })
+                );
+                router.push("/hug");
+              }}
+            >
+              נפגשנו! מצלמים סלפי 🤳
+            </button>
+            <button className="text-foreground/50 font-medium" onClick={search}>
+              חפשו מישהו אחר 🔄
+            </button>
+          </>
+        ) : null}
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
