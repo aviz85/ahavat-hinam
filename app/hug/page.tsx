@@ -45,8 +45,15 @@ export default function Hug() {
         contentType: file.type || "image/jpeg",
       });
       if (upErr) throw upErr;
+      const { data: me } = await sb
+        .from("profiles")
+        .select("name, emoji")
+        .eq("id", uid)
+        .maybeSingle();
       const { error: insErr } = await sb.from("hugs").insert({
         hugger_id: uid,
+        hugger_name: me?.name ?? null,
+        hugger_emoji: me?.emoji ?? null,
         hugged_id: target?.id ?? null,
         hugged_name: target?.name ?? null,
         image_path: path,

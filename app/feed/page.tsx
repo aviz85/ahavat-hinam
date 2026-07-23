@@ -27,7 +27,7 @@ export default function Feed() {
       }
       const { data } = await sb
         .from("hugs")
-        .select("*, profiles!hugs_hugger_id_fkey(name, emoji)")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
       setHugs((data as Hug[]) ?? []);
@@ -57,10 +57,10 @@ export default function Feed() {
             {hugs.map((h) => (
               <article key={h.id} className="card overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-3xl">{h.profiles?.emoji ?? "🙂"}</span>
+                  <span className="text-3xl">{h.hugger_emoji ?? "🙂"}</span>
                   <div className="flex-1">
                     <p className="font-bold">
-                      {h.profiles?.name ?? "מישהו"}
+                      {h.hugger_name ?? "מישהו"}
                       {h.hugged_name && (
                         <span className="font-normal text-foreground/70">
                           {" "}

@@ -32,9 +32,10 @@ export type OppositeMatch = {
 export type Hug = {
   id: string;
   hugger_id: string;
+  hugger_name: string | null;
+  hugger_emoji: string | null;
   hugged_name: string | null;
   image_path: string;
   caption: string | null;
   created_at: string;
-  profiles: { name: string; emoji: string } | null;
 };

@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# אהבת חינם ❤️ Ahavat Hinam
 
-## Getting Started
+**מצאו את מי שהכי הפוך מכם בהשקפת העולם — ותנו לו חיבוק.**
 
-First, run the development server:
+Find the person nearest you whose worldview is the *most opposite* of yours — then go give them a real hug, take a selfie together, and share it.
+
+> נאמר על ירושלים שחרבה בגלל שנאת חינם. הפרויקט הזה הוא ניסוי חברתי בכיוון ההפוך: אהבת חינם — אהבה שלא תלויה בדבר, ודווקא כלפי מי שרחוק ממך ביותר.
+
+## How it works
+
+1. **שאלון השקפה** — answer 6 multiple-choice questions (religion, economy, security, society, identity, future). Your answers become a worldview vector.
+2. **התאמה הפוכה** — with your GPS location, a PostGIS query finds the user within 50km whose vector is *farthest* from yours.
+3. **המשימה** — walk over, introduce yourself, and give a genuine hug 🤗.
+4. **הסלפי** — snap a selfie together, add a few words, and post it to the shared hug feed.
+
+## Stack
+
+- **Next.js 16** (App Router, RTL Hebrew, installable PWA)
+- **Supabase** — anonymous auth, Postgres + PostGIS (`find_opposite` RPC), Storage for selfies
+- **Tailwind CSS 4**
+
+## Privacy by design
+
+- Worldview answers and exact location are **never readable by other users** (RLS: each user reads only their own profile).
+- Matching runs inside a `security definer` RPC; it returns only a name, an emoji, a distance, and coordinates rounded to ~100m.
+- Matches are limited to users active in the last 7 days.
+- No email, no phone — anonymous sign-in only. Users choose a display name and an emoji avatar.
+
+## Run it yourself
+
+```bash
+git clone https://github.com/aviz85/ahavat-hinam
+cd ahavat-hinam && npm install
+```
+
+Create a [Supabase](https://supabase.com) project, then:
+
+```bash
+supabase link --project-ref <your-ref>
+supabase db push
+```
+
+Enable **anonymous sign-ins** (Authentication → Sign In / Up → Anonymous), then create `.env.local`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<your-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Optionally seed two demo users with opposite worldviews (uses the service key, never commit it):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+SERVICE_KEY=<service-role-key> node scripts/seed-demo.mjs
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## License
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT — like all love projects, free of charge. אהבת חינם.
