@@ -1,3 +1,4 @@
-להתנסות באפליקציה (מהנייד, שנייה להתקין): https://ahavat-hinam-app.vercel.app
+להתנסות באפליקציה (מהנייד, שנייה להתקין): https://hugs.photos
+כתובת חלופית אם הראשונה עוד לא נפתחת אצלכם: https://ahavat-hinam-app.vercel.app
 
 הקוד הפתוח בגיטהאב (MIT): https://github.com/aviz85/ahavat-hinam
