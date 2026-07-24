@@ -158,6 +158,12 @@ export default function Profile() {
           {saved ? "נשמר! ✓" : saving ? "שומרים..." : "שמירה"}
         </button>
         <InviteButton />
+        <button
+          className="text-rose-deep font-medium"
+          onClick={() => router.push("/retake")}
+        >
+          🔄 עדכון השקפת העולם (אחת ל-30 יום)
+        </button>
       </main>
       <BottomNav />
     </div>
