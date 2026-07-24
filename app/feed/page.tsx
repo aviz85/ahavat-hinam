@@ -17,6 +17,8 @@ export default function Feed() {
   const router = useRouter();
   const [hugs, setHugs] = useState<Hug[] | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
+  const [likes, setLikes] = useState<Record<string, { count: number; mine: boolean }>>({});
 
   const [repeatNote, setRepeatNote] = useState(false);
 
@@ -42,14 +44,45 @@ export default function Feed() {
         router.replace("/");
         return;
       }
+      setUid(sess.session.user.id);
       const { data } = await sb
         .from("hugs")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
-      setHugs((data as Hug[]) ?? []);
+      const rows = (data as Hug[]) ?? [];
+      setHugs(rows);
+      if (rows.length) {
+        const { data: likeRows } = await sb
+          .from("hug_likes")
+          .select("hug_id, user_id")
+          .in("hug_id", rows.map((h) => h.id));
+        const me = sess.session.user.id;
+        const agg: Record<string, { count: number; mine: boolean }> = {};
+        for (const l of likeRows ?? []) {
+          agg[l.hug_id] ??= { count: 0, mine: false };
+          agg[l.hug_id].count++;
+          if (l.user_id === me) agg[l.hug_id].mine = true;
+        }
+        setLikes(agg);
+      }
     })();
   }, [router]);
+
+  async function toggleLike(hugId: string) {
+    if (!uid) return;
+    const cur = likes[hugId] ?? { count: 0, mine: false };
+    setLikes({
+      ...likes,
+      [hugId]: { count: cur.count + (cur.mine ? -1 : 1), mine: !cur.mine },
+    });
+    const sb = supabase();
+    if (cur.mine) {
+      await sb.from("hug_likes").delete().eq("hug_id", hugId).eq("user_id", uid);
+    } else {
+      await sb.from("hug_likes").insert({ hug_id: hugId, user_id: uid });
+    }
+  }
 
   const publicUrl = (path: string) =>
     supabase().storage.from("hugs").getPublicUrl(path).data.publicUrl;
@@ -119,10 +152,24 @@ export default function Feed() {
                   loading="lazy"
                 />
                 {h.caption && (
-                  <p className="px-4 py-3 text-base leading-relaxed">
+                  <p className="px-4 pt-3 text-base leading-relaxed">
                     {h.caption}
                   </p>
                 )}
+                <div className="px-4 py-3">
+                  <button
+                    className="flex items-center gap-2 font-bold text-rose-deep active:scale-110 transition"
+                    onClick={() => toggleLike(h.id)}
+                    aria-label="לייק לחיבוק"
+                  >
+                    <span className="text-2xl">
+                      {likes[h.id]?.mine ? "❤️" : "🤍"}
+                    </span>
+                    {(likes[h.id]?.count ?? 0) > 0 && (
+                      <span>{likes[h.id]!.count}</span>
+                    )}
+                  </button>
+                </div>
               </article>
             ))}
           </div>
