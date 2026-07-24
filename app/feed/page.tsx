@@ -16,6 +16,16 @@ function timeAgo(iso: string) {
 export default function Feed() {
   const router = useRouter();
   const [hugs, setHugs] = useState<Hug[] | null>(null);
+  const [celebration, setCelebration] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pts = sessionStorage.getItem("last_points");
+    if (pts) {
+      sessionStorage.removeItem("last_points");
+      setCelebration(pts);
+      setTimeout(() => setCelebration(null), 5000);
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -43,6 +53,11 @@ export default function Feed() {
         <h1 className="text-3xl font-black text-rose-deep text-center mb-6">
           פיד החיבוקים ❤️
         </h1>
+        {celebration && (
+          <div className="card px-5 py-4 mb-5 text-center text-lg font-bold text-rose-deep">
+            🏅 החיבוק הזה הכניס לכם {celebration} נקודות של אהבת חינם!
+          </div>
+        )}
         {hugs === null ? (
           <div className="text-center text-5xl float mt-16">❤️</div>
         ) : hugs.length === 0 ? (
@@ -72,7 +87,13 @@ export default function Feed() {
                       {timeAgo(h.created_at)}
                     </p>
                   </div>
-                  <span className="text-2xl">🤗</span>
+                  {h.points > 0 ? (
+                    <span className="font-black text-rose-deep text-sm bg-rose/10 rounded-full px-3 py-1.5">
+                      🏅 {h.points}+
+                    </span>
+                  ) : (
+                    <span className="text-2xl">🤗</span>
+                  )}
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

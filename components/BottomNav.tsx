@@ -20,6 +20,7 @@ export default function BottomNav() {
     <nav className="sticky bottom-0 flex card !rounded-b-none !rounded-t-3xl mx-2">
       {item("/mission", "המשימה", "🎯")}
       {item("/feed", "הפיד", "❤️")}
+      {item("/profile", "פרופיל", "👤")}
     </nav>
   );
 }

@@ -27,6 +27,8 @@ export type OppositeMatch = {
   opposition: number;
   lat: number;
   lng: number;
+  avatar_path: string | null;
+  bio: string | null;
 };
 
 export type Hug = {
@@ -37,5 +39,6 @@ export type Hug = {
   hugged_name: string | null;
   image_path: string;
   caption: string | null;
+  points: number;
   created_at: string;
 };

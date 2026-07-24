@@ -84,8 +84,14 @@ export default function Onboarding() {
           <br />
           לצלם סלפי — ולהעלות לפיד.
         </p>
+        <div className="card px-5 py-4 max-w-sm text-base leading-relaxed">
+          <b>רגע לפני שמתחילים:</b> ענו לאט ובכנות מלאה. כל הקסם כאן בנוי על
+          אמת — ככל שהתשובות אמיתיות יותר, כך המפגש שתקבלו יהיה משמעותי יותר.
+          וגם: ככל שהחיבוק שלכם יהיה עם מישהו הפוך מכם יותר — תקבלו יותר
+          נקודות 🏅
+        </div>
         <button className="btn-primary text-xl" onClick={() => setStep(0)}>
-          מתחילים ←
+          אני עונה בכנות ←
         </button>
       </main>
     );

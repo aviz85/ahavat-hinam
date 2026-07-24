@@ -45,22 +45,16 @@ export default function Hug() {
         contentType: file.type || "image/jpeg",
       });
       if (upErr) throw upErr;
-      const { data: me } = await sb
-        .from("profiles")
-        .select("name, emoji")
-        .eq("id", uid)
-        .maybeSingle();
-      const { error: insErr } = await sb.from("hugs").insert({
-        hugger_id: uid,
-        hugger_name: me?.name ?? null,
-        hugger_emoji: me?.emoji ?? null,
-        hugged_id: target?.id ?? null,
-        hugged_name: target?.name ?? null,
-        image_path: path,
-        caption: caption.trim() || null,
+      const { data: rec, error: insErr } = await sb.rpc("record_hug", {
+        p_hugged_id: target?.id ?? null,
+        p_hugged_name: target?.name ?? null,
+        p_image_path: path,
+        p_caption: caption,
       });
       if (insErr) throw insErr;
       sessionStorage.removeItem("hug_target");
+      const pts = rec?.[0]?.points ?? 0;
+      if (pts > 0) sessionStorage.setItem("last_points", String(pts));
       router.replace("/feed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "ההעלאה נכשלה, נסו שוב");

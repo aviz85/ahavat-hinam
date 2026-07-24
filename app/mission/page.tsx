@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase, OppositeMatch } from "@/lib/supabase";
 import { MAX_OPPOSITION } from "@/lib/questions";
 import BottomNav from "@/components/BottomNav";
+import InviteButton from "@/components/InviteButton";
+import { enableProximityPush, isPushEnabled } from "@/lib/push";
 
 type Status = "loading" | "no-location" | "searching" | "found" | "empty" | "error";
 
@@ -18,6 +20,11 @@ export default function Mission() {
   const [status, setStatus] = useState<Status>("loading");
   const [match, setMatch] = useState<OppositeMatch | null>(null);
   const [errMsg, setErrMsg] = useState("");
+  const [pushState, setPushState] = useState<"unknown" | "off" | "on">("unknown");
+
+  useEffect(() => {
+    isPushEnabled().then((on) => setPushState(on ? "on" : "off"));
+  }, []);
 
   const search = useCallback(async () => {
     const sb = supabase();
@@ -40,6 +47,8 @@ export default function Mission() {
             p_lng: longitude,
           });
           if (locErr) throw locErr;
+          // fire-and-forget: server checks if an opposite is nearby and pushes both sides
+          sb.functions.invoke("notify-proximity").catch(() => {});
           const { data, error: findErr } = await sb.rpc("find_opposite", {
             radius_m: 50000,
           });
@@ -97,6 +106,7 @@ export default function Mission() {
               עדיין אין משתמשים אחרים ברדיוס 50 ק"מ. שתפו את האפליקציה עם מישהו
               שחושב הפוך מכם 😉
             </p>
+            <InviteButton label="שתפו את האפליקציה 💌" />
             <button className="btn-primary" onClick={search}>
               רעננו חיפוש
             </button>
@@ -116,10 +126,28 @@ export default function Mission() {
               מצאנו את ההפך שלך! 🎯
             </p>
             <div className="card px-8 py-8 flex flex-col items-center gap-3 w-full max-w-sm">
-              <div className="text-7xl rounded-full bg-cream p-4 pulse-ring">
-                {match.emoji}
-              </div>
+              {match.avatar_path ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={
+                    supabase().storage
+                      .from("avatars")
+                      .getPublicUrl(match.avatar_path).data.publicUrl
+                  }
+                  alt={`התמונה של ${match.name}`}
+                  className="w-28 h-28 rounded-full object-cover pulse-ring"
+                />
+              ) : (
+                <div className="text-7xl rounded-full bg-cream p-4 pulse-ring">
+                  {match.emoji}
+                </div>
+              )}
               <h1 className="text-3xl font-black">{match.name}</h1>
+              {match.bio && (
+                <p className="text-foreground/70 text-center leading-snug">
+                  {match.bio}
+                </p>
+              )}
               <div className="flex gap-6 text-center">
                 <div>
                   <div className="text-2xl font-black text-rose-deep">
@@ -146,6 +174,9 @@ export default function Mission() {
             <p className="max-w-xs text-foreground/70">
               המשימה: להגיע, להציג את עצמכם, לתת חיבוק אמיתי — ולצלם סלפי ביחד!
             </p>
+            <p className="font-bold text-rose-deep">
+              🏅 החיבוק הזה שווה {oppositionPct} נקודות!
+            </p>
             <button
               className="btn-primary text-xl"
               onClick={() => {
@@ -163,6 +194,19 @@ export default function Mission() {
             </button>
           </>
         ) : null}
+        {pushState === "off" && (status === "found" || status === "empty") && (
+          <button
+            className="card px-5 py-3 font-medium text-foreground/80 mt-2"
+            onClick={async () => {
+              const r = await enableProximityPush();
+              if (r === "enabled") setPushState("on");
+              else if (r === "unsupported")
+                alert("הדפדפן לא תומך בהתראות. באייפון: הוסיפו את האפליקציה למסך הבית ונסו שוב.");
+            }}
+          >
+            🔔 עדכנו אותי כשההפך שלי נכנס לקרבתי
+          </button>
+        )}
       </main>
       <BottomNav />
     </div>
