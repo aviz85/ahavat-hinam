@@ -1,0 +1,3 @@
+להתנסות באפליקציה (מהנייד, שנייה להתקין): https://ahavat-hinam-app.vercel.app
+
+הקוד הפתוח בגיטהאב (MIT): https://github.com/aviz85/ahavat-hinam
