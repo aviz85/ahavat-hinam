@@ -18,12 +18,19 @@ export default function Feed() {
   const [hugs, setHugs] = useState<Hug[] | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
 
+  const [repeatNote, setRepeatNote] = useState(false);
+
   useEffect(() => {
     const pts = sessionStorage.getItem("last_points");
     if (pts) {
       sessionStorage.removeItem("last_points");
       setCelebration(pts);
       setTimeout(() => setCelebration(null), 5000);
+    }
+    if (sessionStorage.getItem("repeat_hug")) {
+      sessionStorage.removeItem("repeat_hug");
+      setRepeatNote(true);
+      setTimeout(() => setRepeatNote(false), 6000);
     }
   }, []);
 
@@ -56,6 +63,12 @@ export default function Feed() {
         {celebration && (
           <div className="card px-5 py-4 mb-5 text-center text-lg font-bold text-rose-deep">
             🏅 החיבוק הזה הכניס לכם {celebration} נקודות של אהבת חינם!
+          </div>
+        )}
+        {repeatNote && (
+          <div className="card px-5 py-4 mb-5 text-center text-base font-medium">
+            🤗 כבר התחבקתם ב-24 השעות האחרונות — החיבוק עלה לפיד, הנקודות
+            יחכו לפעם הבאה!
           </div>
         )}
         {hugs === null ? (

@@ -84,8 +84,10 @@ export default function Hug() {
       });
       if (insErr) throw insErr;
       sessionStorage.removeItem("hug_target");
-      const pts = rec?.[0]?.points ?? 0;
-      if (pts > 0) sessionStorage.setItem("last_points", String(pts));
+      const result = rec?.[0];
+      if (result?.repeat_blocked) sessionStorage.setItem("repeat_hug", "1");
+      else if ((result?.points ?? 0) > 0)
+        sessionStorage.setItem("last_points", String(result.points));
       router.replace("/feed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "ההעלאה נכשלה, נסו שוב");
