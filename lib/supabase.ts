@@ -40,5 +40,6 @@ export type Hug = {
   image_path: string;
   caption: string | null;
   points: number;
+  verified: boolean;
   created_at: string;
 };

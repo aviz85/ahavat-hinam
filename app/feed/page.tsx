@@ -85,6 +85,9 @@ export default function Feed() {
                     </p>
                     <p className="text-xs text-foreground/50">
                       {timeAgo(h.created_at)}
+                      {h.verified && (
+                        <span className="text-green-700 font-bold"> · ✅ מפגש מאומת</span>
+                      )}
                     </p>
                   </div>
                   {h.points > 0 ? (

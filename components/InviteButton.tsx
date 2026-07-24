@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const APP_URL = "https://ahavat-hinam-app.vercel.app";
+const APP_URL = "https://hugs.photos";
 const SHARE_TEXT =
   "מצאו את מי שהכי הפוך מכם בהשקפה — ותנו לו חיבוק 🤗 בואו לאהבת חינם:";
 

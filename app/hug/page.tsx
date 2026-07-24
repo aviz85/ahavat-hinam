@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 
@@ -16,11 +17,40 @@ export default function Hug() {
   const [caption, setCaption] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verifId, setVerifId] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("hug_target");
     if (raw) setTarget(JSON.parse(raw));
   }, []);
+
+  // poll the handshake until the other side confirms
+  useEffect(() => {
+    if (!verifId || verified) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase()
+        .from("hug_confirmations")
+        .select("confirmed_at")
+        .eq("id", verifId)
+        .maybeSingle();
+      if (data?.confirmed_at) setVerified(true);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [verifId, verified]);
+
+  async function startVerification() {
+    setError(null);
+    const { data, error: vErr } = await supabase().rpc("start_hug_verification");
+    if (vErr) {
+      setError(vErr.message);
+      return;
+    }
+    setVerifId(data as string);
+    const url = `${window.location.origin}/confirm/${data}`;
+    setQrUrl(await QRCode.toDataURL(url, { width: 480, margin: 1 }));
+  }
 
   function onPick(f: File) {
     setFile(f);
@@ -50,6 +80,7 @@ export default function Hug() {
         p_hugged_name: target?.name ?? null,
         p_image_path: path,
         p_caption: caption,
+        p_verification_id: verified ? verifId : null,
       });
       if (insErr) throw insErr;
       sessionStorage.removeItem("hug_target");
@@ -72,6 +103,27 @@ export default function Hug() {
           <p className="text-lg text-center">
             אתם ו<b>{target.name}</b> — תנציחו את הרגע!
           </p>
+        )}
+        {verified ? (
+          <div className="card w-full px-5 py-4 text-center font-bold text-green-700">
+            ✅ המפגש אומת על ידי הצד השני — נקודות כפולות!
+          </div>
+        ) : qrUrl ? (
+          <div className="card w-full px-5 py-5 flex flex-col items-center gap-3">
+            <p className="font-bold">תנו לצד השני לסרוק עם המצלמה:</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrUrl} alt="קוד QR לאימות המפגש" className="w-56 h-56 rounded-xl" />
+            <p className="text-sm text-foreground/60">
+              ממתינים לאישור... הקוד תקף ל-15 דקות
+            </p>
+          </div>
+        ) : (
+          <button
+            className="card w-full px-5 py-4 font-bold text-rose-deep"
+            onClick={startVerification}
+          >
+            🤝 אמתו את המפגש בסריקת QR — ותקבלו נקודות כפולות
+          </button>
         )}
         <input
           ref={fileRef}
