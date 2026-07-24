@@ -7,11 +7,32 @@ import { QUESTIONS, EMOJIS } from "@/lib/questions";
 
 type Pending = { name: string; emoji: string; answers: number[] };
 
+function readPending(meta: Record<string, unknown> | undefined): Pending | null {
+  const raw = localStorage.getItem("pending_profile");
+  if (raw) {
+    try {
+      const p = JSON.parse(raw);
+      if (p?.name && Array.isArray(p?.answers)) return p;
+    } catch {}
+  }
+  // fallback: answers embedded in the auth account itself (survives switching
+  // browsers when the email verification link opens elsewhere)
+  if (meta?.pending_name && Array.isArray(meta?.pending_answers)) {
+    return {
+      name: String(meta.pending_name),
+      emoji: String(meta.pending_emoji ?? "🙂"),
+      answers: meta.pending_answers as number[],
+    };
+  }
+  return null;
+}
+
 export default function Onboarding() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
-  // step: -1 intro, 0..n-1 questions, n name+emoji, n+1 register
+  // step: -1 intro, 0..n-1 questions, n name+emoji, n+1 register (only if not signed in)
   const [step, setStep] = useState(-1);
+  const [hasSession, setHasSession] = useState(false);
   const [answers, setAnswers] = useState<number[]>([]);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState(EMOJIS[0]);
@@ -21,56 +42,108 @@ export default function Onboarding() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const sb = supabase();
-      const { data } = await sb.auth.getSession();
-      if (data.session) {
-        const uid = data.session.user.id;
-        const { data: profile } = await sb
-          .from("profiles")
-          .select("id")
-          .eq("id", uid)
-          .maybeSingle();
-        if (profile) {
+    const sb = supabase();
+    let routed = false;
+
+    async function routeUser(user: { id: string; user_metadata?: Record<string, unknown> } | null) {
+      if (routed) return;
+      if (!user) {
+        setChecking(false);
+        return;
+      }
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile) {
+        routed = true;
+        router.replace("/mission");
+        return;
+      }
+      // signed in, no profile yet — restore saved quiz answers if we have them
+      // (localStorage, or the account metadata that rode inside the email link)
+      const pending = readPending(user.user_metadata);
+      if (pending) {
+        const { error: insErr } = await sb.from("profiles").insert({
+          id: user.id,
+          name: pending.name,
+          emoji: pending.emoji,
+          answers: pending.answers,
+        });
+        if (!insErr || insErr.code === "23505") {
+          localStorage.removeItem("pending_profile");
+          routed = true;
           router.replace("/mission");
           return;
         }
-        // returned from a verification email / OAuth — restore pending profile
-        const raw = localStorage.getItem("pending_profile");
-        if (raw) {
-          const p: Pending = JSON.parse(raw);
-          const { error: insErr } = await sb.from("profiles").upsert({
-            id: uid,
-            name: p.name,
-            emoji: p.emoji,
-            answers: p.answers,
-          });
-          if (!insErr) {
-            localStorage.removeItem("pending_profile");
-            router.replace("/mission");
-            return;
-          }
-        }
       }
+      // no saved answers anywhere — quiz only, no second registration
+      setHasSession(true);
       setChecking(false);
-    })();
+    }
+
+    sb.auth.getSession().then(({ data }) => routeUser(data.session?.user ?? null));
+    // the session from a verification link is set moments AFTER first paint —
+    // this listener catches it and routes correctly (fixes the quiz loop)
+    const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) routeUser(session.user);
+    });
+    return () => sub.subscription.unsubscribe();
   }, [router]);
 
-  function stashPending() {
+  function stash(a: number[], n: string, e: string) {
     localStorage.setItem(
       "pending_profile",
-      JSON.stringify({ name: name.trim(), emoji, answers } satisfies Pending)
+      JSON.stringify({ name: n.trim(), emoji: e, answers: a } satisfies Pending)
     );
+  }
+
+  // signed-in user finishing the quiz: create the profile right away
+  async function createProfileNow() {
+    setBusy(true);
+    setError(null);
+    const sb = supabase();
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) {
+      setHasSession(false);
+      setStep(QUESTIONS.length + 1);
+      setBusy(false);
+      return;
+    }
+    const { error: insErr } = await sb.from("profiles").insert({
+      id: uid,
+      name: name.trim(),
+      emoji,
+      answers,
+    });
+    if (insErr && insErr.code !== "23505") {
+      setError(insErr.message);
+      setBusy(false);
+      return;
+    }
+    localStorage.removeItem("pending_profile");
+    router.replace("/mission");
   }
 
   async function registerWithEmail() {
     setBusy(true);
     setError(null);
     try {
-      stashPending();
+      stash(answers, name, emoji);
       const { error: otpErr } = await supabase().auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: window.location.origin + "/" },
+        options: {
+          emailRedirectTo: window.location.origin + "/",
+          // embed the quiz in the account itself so the profile can be
+          // created even when the email link opens in a different browser
+          data: {
+            pending_name: name.trim(),
+            pending_emoji: emoji,
+            pending_answers: answers,
+          },
+        },
       });
       if (otpErr) throw otpErr;
       setLinkSent(true);
@@ -83,13 +156,13 @@ export default function Onboarding() {
   async function registerWithGoogle() {
     setBusy(true);
     setError(null);
-    stashPending();
+    stash(answers, name, emoji);
     const { error: oErr } = await supabase().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin + "/" },
     });
     if (oErr) {
-      setError("התחברות Google עוד לא זמינה — הירשמו במייל בינתיים 🙏");
+      setError("התחברות Google נכשלה — נסו במייל 🙏");
       setBusy(false);
     }
   }
@@ -107,6 +180,11 @@ export default function Onboarding() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
         <div className="text-7xl float">🤗</div>
         <h1 className="text-4xl font-black text-rose-deep">אהבת חינם</h1>
+        {hasSession && (
+          <p className="card px-4 py-2 text-sm font-medium">
+            ✅ אתם מחוברים — נשאר רק שאלון ההשקפה
+          </p>
+        )}
         <p className="text-lg leading-relaxed max-w-sm">
           ענו על שאלון קצר על השקפת העולם שלכם.
           <br />
@@ -197,12 +275,19 @@ export default function Onboarding() {
             ))}
           </div>
         </div>
+        {error && <p className="text-red-600 font-medium">{error}</p>}
         <button
           className="btn-primary text-xl mt-2"
-          disabled={!name.trim()}
-          onClick={() => setStep(step + 1)}
+          disabled={!name.trim() || busy}
+          onClick={() => {
+            if (hasSession) createProfileNow();
+            else {
+              stash(answers, name, emoji);
+              setStep(step + 1);
+            }
+          }}
         >
-          ממשיכים ←
+          {busy ? "רגע..." : hasSession ? "יאללה, למשימה ←" : "ממשיכים ←"}
         </button>
       </main>
     );
