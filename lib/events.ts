@@ -1,8 +1,18 @@
 import { supabase } from "@/lib/supabase";
 
-// Fire-and-forget product analytics. Never blocks or breaks UX.
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
+// Fire-and-forget product analytics: Supabase always, Google Analytics when
+// NEXT_PUBLIC_GA_ID is configured (same events, same names, zero extra code).
 export function logEvent(event: string, props: Record<string, unknown> = {}) {
   try {
+    if (typeof window !== "undefined" && window.gtag) {
+      window.gtag("event", event, props);
+    }
     const sb = supabase();
     sb.auth
       .getSession()
