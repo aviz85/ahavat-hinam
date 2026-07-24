@@ -125,6 +125,11 @@ export default function Onboarding() {
         <button className="btn-primary text-xl" onClick={() => setStep(0)}>
           אני עונה בכנות ←
         </button>
+        <p className="text-xs text-foreground/50">
+          <a className="underline" href="/privacy">מדיניות פרטיות</a>
+          {" · "}
+          <a className="underline" href="/terms">תנאי שימוש</a>
+        </p>
       </main>
     );
   }
@@ -257,6 +262,17 @@ export default function Onboarding() {
         </>
       )}
       {error && <p className="text-red-600 font-medium">{error}</p>}
+      <p className="text-sm text-foreground/60 text-center leading-relaxed">
+        בהרשמה אתם מאשרים שאתם בני 18+ ומסכימים{" "}
+        <a className="underline" href="/terms" target="_blank">
+          לתנאי השימוש
+        </a>{" "}
+        ו
+        <a className="underline" href="/privacy" target="_blank">
+          למדיניות הפרטיות
+        </a>
+        .
+      </p>
       <button className="text-foreground/50 font-medium" onClick={() => setStep(step - 1)}>
         → חזרה
       </button>
