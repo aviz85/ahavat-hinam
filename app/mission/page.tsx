@@ -7,6 +7,7 @@ import { MAX_OPPOSITION } from "@/lib/questions";
 import BottomNav from "@/components/BottomNav";
 import InviteButton from "@/components/InviteButton";
 import { enableProximityPush, isPushEnabled } from "@/lib/push";
+import { logEvent } from "@/lib/events";
 
 type Status = "loading" | "no-location" | "searching" | "found" | "empty" | "error";
 
@@ -56,8 +57,13 @@ export default function Mission() {
           if (data && data.length > 0) {
             setMatch(data[0]);
             setStatus("found");
+            logEvent("match_found", {
+              opposition: data[0].opposition,
+              distance_m: Math.round(data[0].distance_m),
+            });
           } else {
             setStatus("empty");
+            logEvent("match_empty");
           }
         } catch (e) {
           setErrMsg(e instanceof Error ? e.message : "שגיאה בחיפוש");
@@ -167,6 +173,7 @@ export default function Mission() {
                 href={`https://maps.google.com/maps?daddr=${match.lat},${match.lng}&dirflg=w`}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => logEvent("navigate_clicked", { distance_m: Math.round(match.distance_m) })}
               >
                 נווטו אליו 🧭
               </a>
@@ -180,6 +187,7 @@ export default function Mission() {
             <button
               className="btn-primary text-xl"
               onClick={() => {
+                logEvent("hug_started", { opposition: match.opposition });
                 sessionStorage.setItem(
                   "hug_target",
                   JSON.stringify({ id: match.id, name: match.name })
@@ -199,6 +207,7 @@ export default function Mission() {
             className="card px-5 py-3 font-medium text-foreground/80 mt-2"
             onClick={async () => {
               const r = await enableProximityPush();
+              logEvent("push_permission", { result: r });
               if (r === "enabled") setPushState("on");
               else if (r === "unsupported")
                 alert("הדפדפן לא תומך בהתראות. באייפון: הוסיפו את האפליקציה למסך הבית ונסו שוב.");

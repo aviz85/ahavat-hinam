@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { logEvent } from "@/lib/events";
 
 const APP_URL = "https://hugs.photos";
 const SHARE_TEXT =
@@ -10,6 +11,7 @@ export default function InviteButton({ label }: { label?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function invite() {
+    logEvent("invite_clicked");
     if (navigator.share) {
       try {
         await navigator.share({
@@ -17,13 +19,15 @@ export default function InviteButton({ label }: { label?: string }) {
           text: SHARE_TEXT,
           url: APP_URL,
         });
+        logEvent("invite_shared", { method: "share_sheet" });
         return;
       } catch {
-        // user cancelled the share sheet — fall through silently
+        logEvent("invite_cancelled");
         return;
       }
     }
     await navigator.clipboard.writeText(`${SHARE_TEXT} ${APP_URL}`);
+    logEvent("invite_shared", { method: "clipboard" });
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   }

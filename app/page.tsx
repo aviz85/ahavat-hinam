@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { QUESTIONS, EMOJIS } from "@/lib/questions";
+import { logEvent } from "@/lib/events";
 
 type Pending = { name: string; emoji: string; answers: number[] };
 
@@ -72,6 +73,7 @@ export default function Onboarding() {
           answers: pending.answers,
         });
         if (!insErr || insErr.code === "23505") {
+          logEvent("profile_created", { path: "recovered_after_auth" });
           localStorage.removeItem("pending_profile");
           routed = true;
           router.replace("/mission");
@@ -124,6 +126,7 @@ export default function Onboarding() {
       return;
     }
     localStorage.removeItem("pending_profile");
+    logEvent("profile_created", { path: "signed_in_quiz" });
     router.replace("/mission");
   }
 
@@ -132,6 +135,7 @@ export default function Onboarding() {
     setError(null);
     try {
       stash(answers, name, emoji);
+      logEvent("registration_email_submitted");
       const { error: otpErr } = await supabase().auth.signInWithOtp({
         email: email.trim(),
         options: {
@@ -157,6 +161,7 @@ export default function Onboarding() {
     setBusy(true);
     setError(null);
     stash(answers, name, emoji);
+    logEvent("registration_google_clicked");
     const { error: oErr } = await supabase().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin + "/" },
@@ -200,7 +205,7 @@ export default function Onboarding() {
           וגם: ככל שהחיבוק שלכם יהיה עם מישהו הפוך מכם יותר — תקבלו יותר
           נקודות 🏅
         </div>
-        <button className="btn-primary text-xl" onClick={() => setStep(0)}>
+        <button className="btn-primary text-xl" onClick={() => { logEvent("quiz_started"); setStep(0); }}>
           אני עונה בכנות ←
         </button>
         <p className="text-xs text-foreground/50">

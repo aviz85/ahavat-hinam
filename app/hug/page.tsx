@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
+import { logEvent } from "@/lib/events";
 
 type Target = { id: string; name: string } | null;
 
@@ -42,6 +43,7 @@ export default function Hug() {
 
   async function startVerification() {
     setError(null);
+    logEvent("qr_verification_started");
     const { data, error: vErr } = await supabase().rpc("start_hug_verification");
     if (vErr) {
       setError(vErr.message);
@@ -85,6 +87,12 @@ export default function Hug() {
       if (insErr) throw insErr;
       sessionStorage.removeItem("hug_target");
       const result = rec?.[0];
+      logEvent("hug_published", {
+        points: result?.points ?? 0,
+        verified: !!result?.verified,
+        repeat: !!result?.repeat_blocked,
+        has_caption: !!caption.trim(),
+      });
       if (result?.repeat_blocked) sessionStorage.setItem("repeat_hug", "1");
       else if ((result?.points ?? 0) > 0)
         sessionStorage.setItem("last_points", String(result.points));

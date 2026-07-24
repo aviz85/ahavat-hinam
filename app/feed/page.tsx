@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, Hug } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
+import { logEvent } from "@/lib/events";
 
 function timeAgo(iso: string) {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -76,6 +77,7 @@ export default function Feed() {
       ...likes,
       [hugId]: { count: cur.count + (cur.mine ? -1 : 1), mine: !cur.mine },
     });
+    logEvent(cur.mine ? "unlike" : "like", { hug_id: hugId });
     const sb = supabase();
     if (cur.mine) {
       await sb.from("hug_likes").delete().eq("hug_id", hugId).eq("user_id", uid);
