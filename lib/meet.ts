@@ -35,6 +35,6 @@ export function beaconFor(a: string, b: string) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return {
     color: BEACON_COLORS[h % BEACON_COLORS.length],
-    emoji: BEACON_EMOJIS[(h >> 3) % BEACON_EMOJIS.length],
+    emoji: BEACON_EMOJIS[(h >>> 3) % BEACON_EMOJIS.length],
   };
 }
