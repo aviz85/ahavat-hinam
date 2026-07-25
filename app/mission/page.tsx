@@ -168,19 +168,37 @@ export default function Mission() {
                   <div className="text-sm text-foreground/60">מכאן</div>
                 </div>
               </div>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  logEvent("navigate_clicked", { distance_m: Math.round(match.distance_m) });
+                  sessionStorage.setItem(
+                    "hug_target",
+                    JSON.stringify({ id: match.id, name: match.name })
+                  );
+                  router.push("/meet");
+                }}
+              >
+                🧭 יוצאים להיפגש — ניווט חי
+              </button>
               <a
-                className="text-rose-deep font-bold underline"
+                className="text-foreground/50 text-sm underline"
                 href={`https://maps.google.com/maps?daddr=${match.lat},${match.lng}&dirflg=w`}
                 target="_blank"
                 rel="noreferrer"
-                onClick={() => logEvent("navigate_clicked", { distance_m: Math.round(match.distance_m) })}
               >
-                נווטו אליו 🧭
+                או במפות גוגל (אזור משוער)
               </a>
             </div>
             <p className="max-w-xs text-foreground/70">
               המשימה: להגיע, להציג את עצמכם, לתת חיבוק אמיתי — ולצלם סלפי ביחד!
             </p>
+            <button
+              className="card px-4 py-2 text-sm text-foreground/70"
+              onClick={() => router.push("/profile")}
+            >
+              📷 העלו תמונת פרופיל — כדי ש{match.name} יזהה אתכם בשטח
+            </button>
             <p className="font-bold text-rose-deep">
               🏅 החיבוק הזה שווה {oppositionPct} נקודות!
             </p>
