@@ -48,7 +48,9 @@ export default function Feed() {
       setUid(sess.session.user.id);
       const { data } = await sb
         .from("hugs")
-        .select("*")
+        .select(
+          "id, hugger_name, hugger_emoji, hugged_name, image_path, caption, points, verified, created_at"
+        )
         .order("created_at", { ascending: false })
         .limit(50);
       const rows = (data as Hug[]) ?? [];
