@@ -57,6 +57,7 @@ export default function Meet() {
     const sb = supabase();
     let watchId: number | null = null;
     let cancelled = false;
+    let cleanupBeat: (() => void) | null = null;
 
     (async () => {
       const { data: sess } = await sb.auth.getSession();
@@ -95,6 +96,19 @@ export default function Meet() {
           }
         });
 
+      // re-broadcast every 5s so a partner who joins later (or missed a
+      // message) still gets our position without us having to move
+      const beat = setInterval(() => {
+        if (mineRef.current) {
+          chan.send({
+            type: "broadcast",
+            event: "fix",
+            payload: { from: me, lat: mineRef.current.lat, lng: mineRef.current.lng },
+          });
+        }
+      }, 5000);
+      cleanupBeat = () => clearInterval(beat);
+
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const fix = {
@@ -117,6 +131,7 @@ export default function Meet() {
 
     return () => {
       cancelled = true;
+      cleanupBeat?.();
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
       chanRef.current?.unsubscribe();
     };
