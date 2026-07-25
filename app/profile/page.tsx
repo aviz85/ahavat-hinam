@@ -18,6 +18,7 @@ export default function Profile() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
+  const [invited, setInvited] = useState<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +35,8 @@ export default function Profile() {
         .select("name, emoji, bio, avatar_path, score")
         .eq("id", id)
         .maybeSingle();
+      const { data: refStats } = await sb.rpc("my_referral_stats");
+      if (refStats?.[0]) setInvited(refStats[0].invited);
       if (p) {
         setName(p.name);
         setEmoji(p.emoji);
@@ -157,7 +160,21 @@ export default function Profile() {
         >
           {saved ? "נשמר! ✓" : saving ? "שומרים..." : "שמירה"}
         </button>
-        <InviteButton />
+        <div className="card px-6 py-4 w-full text-center">
+          <p className="font-bold text-rose-deep text-lg">
+            💌 חברים שהצטרפו בזכותכם: {invited}
+          </p>
+          <p className="text-sm text-foreground/60 mb-3">
+            כל חבר שמשלים את השאלון דרך הלינק שלכם = 25 נקודות אליכם!
+          </p>
+          <InviteButton label="שלחו את הלינק האישי שלכם 💌" />
+        </div>
+        <button
+          className="card px-5 py-3 font-bold text-rose-deep w-full"
+          onClick={() => router.push("/meet?host=1")}
+        >
+          🤝 מפגש יזום — נפגשים עם חבר? קבלו ניווט חי ונקודות
+        </button>
         <button
           className="text-rose-deep font-medium"
           onClick={() => router.push("/retake")}

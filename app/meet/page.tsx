@@ -27,7 +27,25 @@ export default function Meet() {
   const chanRef = useRef<RealtimeChannel | null>(null);
   const mineRef = useRef<Fix | null>(null);
 
+  const [hostWaiting, setHostWaiting] = useState(false);
+
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    // guest side of a planned-meetup link: target rides in the URL
+    const withId = params.get("with");
+    const withName = params.get("n");
+    if (withId && /^[0-9a-f-]{36}$/.test(withId)) {
+      const t = { id: withId, name: withName || "חבר" };
+      sessionStorage.setItem("hug_target", JSON.stringify(t));
+      setTarget(t);
+      logEvent("meet_link_opened");
+      return;
+    }
+    // host side: no target yet — wait for whoever opens our link
+    if (params.get("host") === "1") {
+      setHostWaiting(true);
+      return;
+    }
     const raw = sessionStorage.getItem("hug_target");
     if (!raw) {
       router.replace("/mission");
@@ -35,6 +53,35 @@ export default function Meet() {
     }
     setTarget(JSON.parse(raw));
   }, [router]);
+
+  // host mode: listen on my invite channel until a guest says hello
+  useEffect(() => {
+    if (!hostWaiting) return;
+    const sb = supabase();
+    let invChan: RealtimeChannel | null = null;
+    (async () => {
+      const { data: sess } = await sb.auth.getSession();
+      if (!sess.session) {
+        router.replace("/");
+        return;
+      }
+      const me = sess.session.user.id;
+      setUid(me);
+      invChan = sb.channel("meet-invite:" + me);
+      invChan
+        .on("broadcast", { event: "hello" }, ({ payload }) => {
+          const t = { id: payload.uid, name: payload.name || "חבר" };
+          sessionStorage.setItem("hug_target", JSON.stringify(t));
+          setTarget(t);
+          setHostWaiting(false);
+          logEvent("meet_link_guest_arrived");
+        })
+        .subscribe();
+    })();
+    return () => {
+      invChan?.unsubscribe();
+    };
+  }, [hostWaiting, router]);
 
   // compass heading (best effort; iOS needs a permission tap elsewhere)
   useEffect(() => {
@@ -69,6 +116,30 @@ export default function Meet() {
       if (cancelled) return;
       setUid(me);
       logEvent("meet_mode_opened");
+
+      // if we arrived via a meet link, announce ourselves to the host
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("with") === target!.id) {
+        const { data: myProf } = await sb
+          .from("profiles")
+          .select("name")
+          .eq("id", me)
+          .maybeSingle();
+        const inv = sb.channel("meet-invite:" + target!.id);
+        inv.subscribe((s) => {
+          if (s === "SUBSCRIBED") {
+            const say = () =>
+              inv.send({
+                type: "broadcast",
+                event: "hello",
+                payload: { uid: me, name: myProf?.name ?? "חבר" },
+              });
+            say();
+            const t2 = setInterval(say, 4000);
+            setTimeout(() => clearInterval(t2), 60000);
+          }
+        });
+      }
 
       // ephemeral pair channel — precise fixes are broadcast peer-to-peer,
       // consensually, and never written to the database
@@ -151,7 +222,45 @@ export default function Meet() {
       className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center gap-5 transition-colors duration-700"
       style={close && beacon ? { background: beacon.color } : undefined}
     >
-      {!target ? null : close && beacon ? (
+      {hostWaiting ? (
+        <>
+          <div className="text-6xl float">🤝</div>
+          <h1 className="text-2xl font-black text-rose-deep">מפגש יזום</h1>
+          <p className="max-w-xs text-foreground/70 leading-relaxed">
+            שלחו לחבר את הקישור, וברגע שיפתח אותו — הניווט החי ביניכם יתחיל
+            אוטומטית.
+          </p>
+          <button
+            className="btn-primary"
+            onClick={async () => {
+              if (!uid) return;
+              const { data: p } = await supabase()
+                .from("profiles")
+                .select("name")
+                .eq("id", uid)
+                .maybeSingle();
+              const link = `https://hugs.photos/meet?with=${uid}&n=${encodeURIComponent(p?.name ?? "")}`;
+              const text = `בוא/י ניפגש לחיבוק דרך אהבת חינם 🤗 פתח/י את הקישור ונמצא זה את זה:`;
+              logEvent("meet_link_shared");
+              if (navigator.share)
+                await navigator.share({ text, url: link }).catch(() => {});
+              else {
+                await navigator.clipboard.writeText(`${text} ${link}`);
+                alert("הקישור הועתק — שלחו אותו לחבר!");
+              }
+            }}
+          >
+            💌 שלחו קישור מפגש
+          </button>
+          <p className="text-foreground/50">ממתינים שהצד השני ייכנס... 📡</p>
+          <button
+            className="text-foreground/50 font-medium"
+            onClick={() => router.push("/mission")}
+          >
+            → חזרה למשימה
+          </button>
+        </>
+      ) : !target ? null : close && beacon ? (
         <>
           <p className="text-white text-2xl font-bold drop-shadow">
             אתם ממש כאן! חפשו את מי שמרים טלפון עם:

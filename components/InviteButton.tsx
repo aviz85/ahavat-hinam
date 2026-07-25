@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { logEvent } from "@/lib/events";
 
 const APP_URL = "https://hugs.photos";
@@ -9,6 +10,15 @@ const SHARE_TEXT =
 
 export default function InviteButton({ label }: { label?: string }) {
   const [copied, setCopied] = useState(false);
+  const [url, setUrl] = useState(APP_URL);
+
+  useEffect(() => {
+    supabase()
+      .auth.getSession()
+      .then(({ data }) => {
+        if (data.session) setUrl(`${APP_URL}/?ref=${data.session.user.id}`);
+      });
+  }, []);
 
   async function invite() {
     logEvent("invite_clicked");
@@ -17,7 +27,7 @@ export default function InviteButton({ label }: { label?: string }) {
         await navigator.share({
           title: "אהבת חינם ❤️",
           text: SHARE_TEXT,
-          url: APP_URL,
+          url,
         });
         logEvent("invite_shared", { method: "share_sheet" });
         return;
@@ -26,7 +36,7 @@ export default function InviteButton({ label }: { label?: string }) {
         return;
       }
     }
-    await navigator.clipboard.writeText(`${SHARE_TEXT} ${APP_URL}`);
+    await navigator.clipboard.writeText(`${SHARE_TEXT} ${url}`);
     logEvent("invite_shared", { method: "clipboard" });
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);

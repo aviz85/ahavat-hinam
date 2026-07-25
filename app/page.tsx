@@ -8,6 +8,11 @@ import { logEvent } from "@/lib/events";
 
 type Pending = { name: string; emoji: string; answers: number[] };
 
+function refFor(uid: string): string | null {
+  const r = localStorage.getItem("ref_by");
+  return r && r !== uid ? r : null;
+}
+
 function readPending(meta: Record<string, unknown> | undefined): Pending | null {
   const raw = localStorage.getItem("pending_profile");
   if (raw) {
@@ -43,6 +48,12 @@ export default function Onboarding() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // capture referral before anything else — survives the whole funnel
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref && /^[0-9a-f-]{36}$/.test(ref)) {
+      localStorage.setItem("ref_by", ref);
+      logEvent("referral_link_opened", { ref });
+    }
     const sb = supabase();
     let routed = false;
 
@@ -71,6 +82,7 @@ export default function Onboarding() {
           name: pending.name,
           emoji: pending.emoji,
           answers: pending.answers,
+          referred_by: refFor(user.id) ?? (user.user_metadata?.pending_ref as string | undefined) ?? null,
         });
         if (!insErr || insErr.code === "23505") {
           logEvent("profile_created", { path: "recovered_after_auth" });
@@ -119,6 +131,7 @@ export default function Onboarding() {
       name: name.trim(),
       emoji,
       answers,
+      referred_by: refFor(uid),
     });
     if (insErr && insErr.code !== "23505") {
       setError(insErr.message);
@@ -146,6 +159,7 @@ export default function Onboarding() {
             pending_name: name.trim(),
             pending_emoji: emoji,
             pending_answers: answers,
+            pending_ref: localStorage.getItem("ref_by"),
           },
         },
       });
