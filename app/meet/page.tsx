@@ -28,6 +28,7 @@ export default function Meet() {
   const mineRef = useRef<Fix | null>(null);
 
   const [hostWaiting, setHostWaiting] = useState(false);
+  const [incoming, setIncoming] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -105,6 +106,7 @@ export default function Meet() {
     let watchId: number | null = null;
     let cancelled = false;
     let cleanupBeat: (() => void) | null = null;
+    let cleanupDoors: (() => void) | null = null;
 
     (async () => {
       const { data: sess } = await sb.auth.getSession();
@@ -117,29 +119,41 @@ export default function Meet() {
       setUid(me);
       logEvent("meet_mode_opened");
 
-      // if we arrived via a meet link, announce ourselves to the host
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("with") === target!.id) {
-        const { data: myProf } = await sb
-          .from("profiles")
-          .select("name")
-          .eq("id", me)
-          .maybeSingle();
-        const inv = sb.channel("meet-invite:" + target!.id);
-        inv.subscribe((s) => {
-          if (s === "SUBSCRIBED") {
-            const say = () =>
-              inv.send({
-                type: "broadcast",
-                event: "hello",
-                payload: { uid: me, name: myProf?.name ?? "חבר" },
-              });
-            say();
-            const t2 = setInterval(say, 4000);
-            setTimeout(() => clearInterval(t2), 60000);
+      // always knock on the target's door: even if their own match points
+      // elsewhere (matching isn't symmetric), they'll see we're heading to them
+      const { data: myProf } = await sb
+        .from("profiles")
+        .select("name")
+        .eq("id", me)
+        .maybeSingle();
+      const inv = sb.channel("meet-invite:" + target!.id);
+      inv.subscribe((s) => {
+        if (s === "SUBSCRIBED") {
+          const say = () =>
+            inv.send({
+              type: "broadcast",
+              event: "hello",
+              payload: { uid: me, name: myProf?.name ?? "חבר" },
+            });
+          say();
+          const t2 = setInterval(say, 5000);
+          setTimeout(() => clearInterval(t2), 120000);
+        }
+      });
+
+      // and listen on my own door: someone else may be walking toward me
+      const myDoor = sb.channel("meet-invite:" + me);
+      myDoor
+        .on("broadcast", { event: "hello" }, ({ payload }) => {
+          if (payload.uid !== target!.id && payload.uid !== me) {
+            setIncoming({ id: payload.uid, name: payload.name || "מישהו" });
           }
-        });
-      }
+        })
+        .subscribe();
+      cleanupDoors = () => {
+        inv.unsubscribe();
+        myDoor.unsubscribe();
+      };
 
       // ephemeral pair channel — precise fixes are broadcast peer-to-peer,
       // consensually, and never written to the database
@@ -203,6 +217,7 @@ export default function Meet() {
     return () => {
       cancelled = true;
       cleanupBeat?.();
+      cleanupDoors?.();
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
       chanRef.current?.unsubscribe();
     };
@@ -346,6 +361,26 @@ export default function Meet() {
             → חזרה למשימה
           </button>
         </>
+      )}
+      {incoming && (
+        <div className="card px-5 py-4 w-full max-w-sm flex flex-col gap-2">
+          <p className="font-bold">🚶 {incoming.name} בדרך אליכם עכשיו!</p>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              sessionStorage.setItem("hug_target", JSON.stringify(incoming));
+              setTarget(incoming);
+              setTheirs(null);
+              setIncoming(null);
+              logEvent("meet_switched_to_incoming");
+            }}
+          >
+            עברו לניווט מולו ←
+          </button>
+          <button className="text-foreground/50 text-sm" onClick={() => setIncoming(null)}>
+            לא עכשיו
+          </button>
+        </div>
       )}
     </main>
   );
