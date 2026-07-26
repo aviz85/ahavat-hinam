@@ -71,19 +71,19 @@ Deno.serve(async (req) => {
   if (reciprocal) {
     if (await pushTo(saved_id, {
       title: "🎉 עניין הדדי!",
-      body: `גם ${myName} רוצה להיפגש איתך לחיבוק — שניכם בעניין. צאו לדרך! 🤗`,
+      body: `גם ${myName} שלח/ה לך חיבוק וירטואלי — שניכם בעניין! צאו לחיבוק אמיתי 🤗`,
       url: "/mission",
     })) sent++;
     if (await pushTo(uid, {
       title: "🎉 עניין הדדי!",
-      body: `${theirName} כבר סימן/ה אותך קודם — שניכם בעניין! 🤗`,
+      body: `${theirName} כבר שלח/ה לך חיבוק וירטואלי קודם — שניכם בעניין! 🤗`,
       url: "/mission",
     })) sent++;
     await admin.from("app_events").insert({ user_id: uid, event: "interest_mutual", props: { with: saved_id } });
   } else {
     if (await pushTo(saved_id, {
-      title: "🔥 מגלים בך עניין!",
-      body: `${myName} מגלה עניין להיפגש איתך לחיבוק 🤗`,
+      title: "🫂 קיבלת חיבוק וירטואלי!",
+      body: `${myName} שלח/ה לך חיבוק וירטואלי — מגלה עניין להיפגש לחיבוק אמיתי 🤗`,
       url: "/mission",
     })) sent++;
   }

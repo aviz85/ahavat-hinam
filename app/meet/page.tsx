@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { pairChannel, bearing, distanceM, beaconFor } from "@/lib/meet";
 import { logEvent } from "@/lib/events";
 
+const AIR_HUG_AFTER_MS = 20000;
+
 type Target = { id: string; name: string } | null;
 type Fix = { lat: number; lng: number; at: number };
 
@@ -29,6 +31,21 @@ export default function Meet() {
 
   const [hostWaiting, setHostWaiting] = useState(false);
   const [incoming, setIncoming] = useState<{ id: string; name: string } | null>(null);
+  const [offerAirHug, setOfferAirHug] = useState(false);
+  const [airHugSent, setAirHugSent] = useState(false);
+
+  async function sendAirHug() {
+    if (!uid || !target) return;
+    const sb = supabase();
+    const { error } = await sb.from("saved_people").insert({
+      user_id: uid,
+      saved_id: target.id,
+    });
+    if (error && error.code !== "23505") return;
+    logEvent("interest_sent", { source: "air_hug" });
+    sb.functions.invoke("notify-interest", { body: { saved_id: target.id } }).catch(() => {});
+    setAirHugSent(true);
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -223,6 +240,12 @@ export default function Meet() {
     };
   }, [target, router]);
 
+  useEffect(() => {
+    if (!target || theirs || hostWaiting) return;
+    const t = setTimeout(() => setOfferAirHug(true), AIR_HUG_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [target, theirs, hostWaiting]);
+
   const dist =
     mine && theirs ? distanceM(mine.lat, mine.lng, theirs.lat, theirs.lng) : null;
   const brg =
@@ -327,6 +350,26 @@ export default function Meet() {
                 <br />
                 המיקום המדויק משותף רק בין שניכם, רק כשהמסך הזה פתוח.
               </p>
+              {offerAirHug && !airHugSent && (
+                <div className="card px-5 py-4 max-w-xs flex flex-col gap-2">
+                  <p className="font-medium">
+                    נראה ש{target.name} לא זמין כרגע 😴
+                  </p>
+                  <button className="btn-primary" onClick={sendAirHug}>
+                    🫂 שלחו חיבוק וירטואלי — עד שתיפגשו באמת
+                  </button>
+                  <p className="text-xs text-foreground/60">
+                    זה לא במקום חיבוק אמיתי! רק הבעת עניין — {target.name}
+                    יקבל הודעה, ויישמר אצלכם למפגש בהמשך
+                  </p>
+                </div>
+              )}
+              {airHugSent && (
+                <p className="card px-5 py-3 font-bold text-rose-deep max-w-xs">
+                  🫂 החיבוק הווירטואלי נשלח! {target.name} נשמר אצלכם — נעדכן
+                  כשזה יהיה הדדי
+                </p>
+              )}
             </>
           ) : (
             <>

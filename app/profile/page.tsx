@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 import InviteButton from "@/components/InviteButton";
+import VirtualHugs from "@/components/VirtualHugs";
 
 export default function Profile() {
   const router = useRouter();
@@ -169,6 +170,7 @@ export default function Profile() {
           </p>
           <InviteButton label="שלחו את הלינק האישי שלכם 💌" />
         </div>
+        <VirtualHugs />
         <button
           className="card px-5 py-3 font-bold text-rose-deep w-full"
           onClick={() => router.push("/meet?host=1")}
