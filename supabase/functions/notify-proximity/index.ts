@@ -49,6 +49,26 @@ Deno.serve(async (req) => {
   const uid = userData?.user?.id;
   if (!uid) return new Response("unauthorized", { status: 401 });
 
+  // consent-based follow alerts: whoever approved-saved pairs this mover is
+  // part of, and is now randomly within range, tell the follower — serendipity!
+  const { data: followAlerts } = await admin.rpc("saved_proximity_alerts", {
+    p_mover: uid,
+  });
+  for (const fa of followAlerts ?? []) {
+    const dist = fa.distance_m < 1000
+      ? `${Math.round(fa.distance_m)} מטר`
+      : `${(fa.distance_m / 1000).toFixed(1)} ק"מ`;
+    await pushTo(fa.follower, {
+      title: "⭐ הזדמנות אקראית!",
+      body: `${fa.other_name} ששמרת נמצא/ת ממש עכשיו כ-${dist} ממך. אולי זה הרגע? 🤗`,
+      url: "/mission",
+    });
+    await admin.from("app_events").insert({
+      user_id: fa.follower, event: "follow_proximity_alert",
+      props: { distance_m: fa.distance_m },
+    });
+  }
+
   const { data: matches } = await userClient.rpc("find_opposite", {
     radius_m: ALERT_RADIUS_M,
   });

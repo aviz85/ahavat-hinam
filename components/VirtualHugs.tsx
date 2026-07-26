@@ -30,45 +30,32 @@ export default function VirtualHugs() {
     load();
   }, [load]);
 
-  async function hugBack(personId: string, opposition?: number) {
-    const sb = supabase();
-    const { data: sess } = await sb.auth.getSession();
-    if (!sess.session) return;
-    const { error } = await sb.from("saved_people").insert({
-      user_id: sess.session.user.id,
-      saved_id: personId,
+  async function respond(followerId: string, approve: boolean) {
+    await supabase().rpc("respond_to_interest", {
+      p_follower: followerId,
+      p_approve: approve,
     });
-    if (error && error.code !== "23505") return;
-    logEvent("interest_sent", { source: "hug_back", opposition });
-    sb.functions.invoke("notify-interest", { body: { saved_id: personId } }).catch(() => {});
+    logEvent(approve ? "follow_approved" : "follow_declined");
     load();
   }
 
-  function goMeet(p: { id: string; name: string }, mutual: boolean) {
-    logEvent("saved_meet_clicked", { mutual });
+  function goMeet(p: { id: string; name: string }) {
     sessionStorage.setItem("hug_target", JSON.stringify({ id: p.id, name: p.name }));
     router.push("/meet");
   }
 
   if (sent.length === 0 && received.length === 0) return null;
 
-  const row = (
-    p: SavedPerson,
-    action: React.ReactNode,
-    extra?: React.ReactNode
-  ) => (
+  const row = (p: SavedPerson, action: React.ReactNode, sub?: string) => (
     <div key={p.id} className="card px-4 py-3 flex items-center gap-3 text-right">
       <span className="text-2xl">{p.emoji}</span>
       <div className="flex-1">
-        <p className="font-bold">
-          {p.name}
-          {extra}
-        </p>
+        <p className="font-bold">{p.name}</p>
         <p className="text-xs text-foreground/60">
           {Math.round((p.opposition / MAX_OPPOSITION) * 100)}% הפוכים
           {p.distance_m != null && ` · ${fmtDistance(p.distance_m)}`}
-          {!p.active && " · לא פעיל לאחרונה"}
         </p>
+        {sub && <p className="text-xs text-foreground/50">{sub}</p>}
       </div>
       {action}
     </div>
@@ -76,83 +63,96 @@ export default function VirtualHugs() {
 
   return (
     <div className="w-full flex flex-col gap-5">
-      <div>
-        <h2 className="font-bold text-rose-deep text-right mb-1">
-          🫂 חיבוקים וירטואליים
-        </h2>
-        <p className="text-xs text-foreground/60 text-right mb-3">
-          חיבוק וירטואלי הוא לא תחליף לאמיתי — רק הבעת עניין ושמירה, עד
-          שתוכלו להיפגש באמת.
-        </p>
-        {received.length > 0 && (
-          <>
-            <h3 className="font-medium text-right text-sm mb-2">
-              קיבלתי — רוצים לפגוש אותי ({received.length})
-            </h3>
-            <div className="flex flex-col gap-2 mb-4">
-              {received.map((a) =>
-                row(
-                  a,
-                  a.mutual ? (
+      {received.length > 0 && (
+        <div>
+          <h2 className="font-bold text-rose-deep text-right mb-1">
+            ⭐ מגלים בך עניין ({received.length})
+          </h2>
+          <p className="text-xs text-foreground/60 text-right mb-3">
+            שמרו אתכם לעתיד. אם תאשרו — הם יקבלו עדכון כשתהיו קרובים במקרה
+            (בלי לחשוף את מיקומכם — רק את עצם הקרבה). אפשר לבטל בכל רגע.
+          </p>
+          <div className="flex flex-col gap-2">
+            {received.map((a) =>
+              a.approved === true
+                ? row(
+                    a,
                     <button
-                      className="text-rose-deep font-bold text-sm"
-                      onClick={() => goMeet(a, true)}
+                      className="text-foreground/40 text-xs underline"
+                      onClick={() => respond(a.id, false)}
                     >
-                      🤝 להיפגש
-                    </button>
-                  ) : (
-                    <button
-                      className="text-rose-deep font-bold text-sm"
-                      onClick={() => hugBack(a.id, a.opposition)}
-                    >
-                      🫂 להחזיר חיבוק
-                    </button>
-                  ),
-                  a.mutual ? <span className="text-sm"> · 🎉 הדדי!</span> : undefined
-                )
-              )}
-            </div>
-          </>
-        )}
-        {sent.length > 0 && (
-          <>
-            <h3 className="font-medium text-right text-sm mb-2">
-              שלחתי — הייתי רוצה לפגוש ({sent.length})
-            </h3>
-            <div className="flex flex-col gap-2">
-              {sent.map((s) =>
-                row(
-                  s,
-                  <>
-                    <button
-                      className="text-rose-deep font-bold text-sm"
-                      onClick={() => goMeet(s, false)}
-                    >
-                      🤝 להיפגש
-                    </button>
-                    <button
-                      className="text-foreground/40 text-sm"
-                      aria-label="הסרה"
-                      onClick={async () => {
-                        const { data: sess } = await supabase().auth.getSession();
-                        if (!sess.session) return;
-                        await supabase()
-                          .from("saved_people")
-                          .delete()
-                          .eq("user_id", sess.session.user.id)
-                          .eq("saved_id", s.id);
-                        load();
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </>
-                )
-              )}
-            </div>
-          </>
-        )}
-      </div>
+                      ביטול
+                    </button>,
+                    "✓ אישרתם עדכוני קרבה"
+                  )
+                : a.approved === false
+                  ? row(a, <span className="text-xs text-foreground/40">נדחה</span>)
+                  : row(
+                      a,
+                      <div className="flex flex-col gap-1">
+                        <button
+                          className="text-rose-deep font-bold text-sm"
+                          onClick={() => respond(a.id, true)}
+                        >
+                          ✓ לאשר
+                        </button>
+                        <button
+                          className="text-foreground/40 text-sm"
+                          onClick={() => respond(a.id, false)}
+                        >
+                          לא תודה
+                        </button>
+                      </div>
+                    )
+            )}
+          </div>
+        </div>
+      )}
+      {sent.length > 0 && (
+        <div>
+          <h2 className="font-bold text-rose-deep text-right mb-1">
+            ⭐ שמורים לעתיד ({sent.length})
+          </h2>
+          <p className="text-xs text-foreground/60 text-right mb-3">
+            אנשים שהייתם רוצים לפגוש מתישהו. כשמישהו מהם יהיה קרוב אליכם
+            במקרה — נעדכן אתכם (בכפוף לאישורו).
+          </p>
+          <div className="flex flex-col gap-2">
+            {sent.map((s) =>
+              row(
+                s,
+                <>
+                  <button
+                    className="text-rose-deep font-bold text-sm"
+                    onClick={() => goMeet(s)}
+                  >
+                    🤝 להיפגש
+                  </button>
+                  <button
+                    className="text-foreground/40 text-sm"
+                    aria-label="הסרה"
+                    onClick={async () => {
+                      const { data: sess } = await supabase().auth.getSession();
+                      if (!sess.session) return;
+                      await supabase()
+                        .from("saved_people")
+                        .delete()
+                        .eq("user_id", sess.session.user.id)
+                        .eq("saved_id", s.id);
+                      load();
+                    }}
+                  >
+                    ✕
+                  </button>
+                </>,
+                s.approved === true
+                  ? "✓ אישרו — תקבלו עדכון כשתהיו קרובים"
+                  : "נשמר · ממתין לאישור עדכוני קרבה"
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

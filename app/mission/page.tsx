@@ -22,6 +22,7 @@ export default function Mission() {
   const [match, setMatch] = useState<OppositeMatch | null>(null);
   const [errMsg, setErrMsg] = useState("");
   const [pushState, setPushState] = useState<"unknown" | "off" | "on">("unknown");
+  const [dashSent, setDashSent] = useState(false);
 
   useEffect(() => {
     isPushEnabled().then((on) => setPushState(on ? "on" : "off"));
@@ -189,6 +190,29 @@ export default function Mission() {
               >
                 או במפות גוגל (אזור משוער)
               </a>
+              <button
+                className="text-foreground/60 text-sm underline"
+                disabled={dashSent}
+                onClick={async () => {
+                  const sb = supabase();
+                  const { data: sess } = await sb.auth.getSession();
+                  if (!sess.session) return;
+                  const { error } = await sb.from("saved_people").insert({
+                    user_id: sess.session.user.id,
+                    saved_id: match.id,
+                  });
+                  if (error && error.code !== "23505") return;
+                  logEvent("interest_sent", { source: "match_card" });
+                  sb.functions
+                    .invoke("notify-interest", { body: { saved_id: match.id } })
+                    .catch(() => {});
+                  setDashSent(true);
+                }}
+              >
+                {dashSent
+                  ? '⭐ נשמר! נעדכן אם תהיו קרובים במקרה (באישורו)'
+                  : '⭐ לא מסתדר עכשיו? שמרו לעתיד'}
+              </button>
             </div>
             <p className="max-w-xs text-foreground/70">
               המשימה: להגיע, להציג את עצמכם, לתת חיבוק אמיתי — ולצלם סלפי ביחד!

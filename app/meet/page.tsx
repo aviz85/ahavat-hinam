@@ -356,18 +356,18 @@ export default function Meet() {
                     נראה ש{target.name} לא זמין כרגע 😴
                   </p>
                   <button className="btn-primary" onClick={sendAirHug}>
-                    🫂 שלחו חיבוק וירטואלי — עד שתיפגשו באמת
+                    ⭐ שמרו לעתיד
                   </button>
                   <p className="text-xs text-foreground/60">
-                    זה לא במקום חיבוק אמיתי! רק הבעת עניין — {target.name}
-                    יקבל הודעה, ויישמר אצלכם למפגש בהמשך
+                    {target.name} יקבל הודעה שהתעניינתם, ואם יאשר — תקבלו
+                    עדכון כשתהיו קרובים זה לזה במקרה. בלי תיאומים — רק מזל
                   </p>
                 </div>
               )}
               {airHugSent && (
                 <p className="card px-5 py-3 font-bold text-rose-deep max-w-xs">
-                  🫂 החיבוק הווירטואלי נשלח! {target.name} נשמר אצלכם — נעדכן
-                  כשזה יהיה הדדי
+                  ⭐ נשמר! אם {target.name} יאשר — נעדכן אתכם כשהמקרה יפגיש
+                  ביניכם
                 </p>
               )}
             </>
