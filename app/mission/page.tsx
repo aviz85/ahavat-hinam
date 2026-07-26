@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase, OppositeMatch } from "@/lib/supabase";
+import { supabase, OppositeMatch, SavedPerson } from "@/lib/supabase";
 import { MAX_OPPOSITION } from "@/lib/questions";
 import BottomNav from "@/components/BottomNav";
 import InviteButton from "@/components/InviteButton";
@@ -22,6 +22,17 @@ export default function Mission() {
   const [match, setMatch] = useState<OppositeMatch | null>(null);
   const [errMsg, setErrMsg] = useState("");
   const [pushState, setPushState] = useState<"unknown" | "off" | "on">("unknown");
+  const [savedOk, setSavedOk] = useState(false);
+  const [savedList, setSavedList] = useState<SavedPerson[]>([]);
+
+  const loadSaved = useCallback(async () => {
+    const { data } = await supabase().rpc("my_saved_people");
+    setSavedList((data as SavedPerson[]) ?? []);
+  }, []);
+
+  useEffect(() => {
+    loadSaved();
+  }, [loadSaved]);
 
   useEffect(() => {
     isPushEnabled().then((on) => setPushState(on ? "on" : "off"));
@@ -203,6 +214,23 @@ export default function Mission() {
               🏅 החיבוק הזה שווה {oppositionPct} נקודות!
             </p>
             <button
+              className="card px-4 py-2 text-sm font-medium"
+              disabled={savedOk}
+              onClick={async () => {
+                const { data: sess } = await supabase().auth.getSession();
+                if (!sess.session) return;
+                await supabase().from("saved_people").insert({
+                  user_id: sess.session.user.id,
+                  saved_id: match.id,
+                });
+                logEvent("person_saved", { opposition: match.opposition });
+                setSavedOk(true);
+                loadSaved();
+              }}
+            >
+              {savedOk ? "⭐ נשמר להמשך!" : `⭐ שמרו את ${match.name} למפגש בהמשך`}
+            </button>
+            <button
               className="btn-primary text-xl"
               onClick={() => {
                 logEvent("hug_started", { opposition: match.opposition });
@@ -233,6 +261,57 @@ export default function Mission() {
           >
             🔔 עדכנו אותי כשההפך שלי נכנס לקרבתי
           </button>
+        )}
+        {savedList.length > 0 && (
+          <div className="w-full max-w-sm mt-6">
+            <h2 className="font-bold text-rose-deep text-right mb-2">
+              ⭐ שמורים למפגש ({savedList.length})
+            </h2>
+            <div className="flex flex-col gap-2">
+              {savedList.map((s) => (
+                <div key={s.id} className="card px-4 py-3 flex items-center gap-3 text-right">
+                  <span className="text-2xl">{s.emoji}</span>
+                  <div className="flex-1">
+                    <p className="font-bold">{s.name}</p>
+                    <p className="text-xs text-foreground/60">
+                      {Math.round((s.opposition / MAX_OPPOSITION) * 100)}% הפוכים
+                      {s.distance_m != null && ` · ${fmtDistance(s.distance_m)}`}
+                      {!s.active && " · לא פעיל לאחרונה"}
+                    </p>
+                  </div>
+                  <button
+                    className="text-rose-deep font-bold text-sm"
+                    onClick={() => {
+                      logEvent("saved_meet_clicked");
+                      sessionStorage.setItem(
+                        "hug_target",
+                        JSON.stringify({ id: s.id, name: s.name })
+                      );
+                      router.push("/meet");
+                    }}
+                  >
+                    🤝 להיפגש
+                  </button>
+                  <button
+                    className="text-foreground/40 text-sm"
+                    aria-label="הסרה מהשמורים"
+                    onClick={async () => {
+                      const { data: sess } = await supabase().auth.getSession();
+                      if (!sess.session) return;
+                      await supabase()
+                        .from("saved_people")
+                        .delete()
+                        .eq("user_id", sess.session.user.id)
+                        .eq("saved_id", s.id);
+                      loadSaved();
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </main>
       <BottomNav />

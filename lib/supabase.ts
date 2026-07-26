@@ -42,3 +42,14 @@ export type Hug = {
   verified: boolean;
   created_at: string;
 };
+
+export type SavedPerson = {
+  id: string;
+  name: string;
+  emoji: string;
+  bio: string | null;
+  avatar_path: string | null;
+  opposition: number;
+  distance_m: number | null;
+  active: boolean;
+};
