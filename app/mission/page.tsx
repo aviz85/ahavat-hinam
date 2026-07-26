@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase, OppositeMatch, SavedPerson } from "@/lib/supabase";
+import { supabase, OppositeMatch, SavedPerson, Admirer } from "@/lib/supabase";
 import { MAX_OPPOSITION } from "@/lib/questions";
 import BottomNav from "@/components/BottomNav";
 import InviteButton from "@/components/InviteButton";
@@ -24,11 +24,30 @@ export default function Mission() {
   const [pushState, setPushState] = useState<"unknown" | "off" | "on">("unknown");
   const [savedOk, setSavedOk] = useState(false);
   const [savedList, setSavedList] = useState<SavedPerson[]>([]);
+  const [admirers, setAdmirers] = useState<Admirer[]>([]);
 
   const loadSaved = useCallback(async () => {
-    const { data } = await supabase().rpc("my_saved_people");
+    const sb = supabase();
+    const [{ data }, { data: adm }] = await Promise.all([
+      sb.rpc("my_saved_people"),
+      sb.rpc("my_admirers"),
+    ]);
     setSavedList((data as SavedPerson[]) ?? []);
+    setAdmirers((adm as Admirer[]) ?? []);
   }, []);
+
+  async function showInterest(personId: string, opposition?: number) {
+    const sb = supabase();
+    const { data: sess } = await sb.auth.getSession();
+    if (!sess.session) return;
+    await sb.from("saved_people").insert({
+      user_id: sess.session.user.id,
+      saved_id: personId,
+    });
+    logEvent("interest_sent", { opposition });
+    sb.functions.invoke("notify-interest", { body: { saved_id: personId } }).catch(() => {});
+    loadSaved();
+  }
 
   useEffect(() => {
     loadSaved();
@@ -214,21 +233,16 @@ export default function Mission() {
               🏅 החיבוק הזה שווה {oppositionPct} נקודות!
             </p>
             <button
-              className="card px-4 py-2 text-sm font-medium"
+              className="card px-4 py-2 text-sm font-bold text-rose-deep"
               disabled={savedOk}
               onClick={async () => {
-                const { data: sess } = await supabase().auth.getSession();
-                if (!sess.session) return;
-                await supabase().from("saved_people").insert({
-                  user_id: sess.session.user.id,
-                  saved_id: match.id,
-                });
-                logEvent("person_saved", { opposition: match.opposition });
+                await showInterest(match.id, match.opposition);
                 setSavedOk(true);
-                loadSaved();
               }}
             >
-              {savedOk ? "⭐ נשמר להמשך!" : `⭐ שמרו את ${match.name} למפגש בהמשך`}
+              {savedOk
+                ? "🔥 הסיגנל נשלח — נשמר אצלך להמשך!"
+                : `🔥 מעניין אותי להיפגש עם ${match.name}`}
             </button>
             <button
               className="btn-primary text-xl"
@@ -262,10 +276,56 @@ export default function Mission() {
             🔔 עדכנו אותי כשההפך שלי נכנס לקרבתי
           </button>
         )}
+        {admirers.length > 0 && (
+          <div className="w-full max-w-sm mt-6">
+            <h2 className="font-bold text-rose-deep text-right mb-2">
+              🔥 מגלים בך עניין להיפגש ({admirers.length})
+            </h2>
+            <div className="flex flex-col gap-2">
+              {admirers.map((a) => (
+                <div key={a.id} className="card px-4 py-3 flex items-center gap-3 text-right">
+                  <span className="text-2xl">{a.emoji}</span>
+                  <div className="flex-1">
+                    <p className="font-bold">
+                      {a.name}
+                      {a.mutual && <span className="text-sm"> · 🎉 הדדי!</span>}
+                    </p>
+                    <p className="text-xs text-foreground/60">
+                      {Math.round((a.opposition / MAX_OPPOSITION) * 100)}% הפוכים
+                      {a.distance_m != null && ` · ${fmtDistance(a.distance_m)}`}
+                    </p>
+                  </div>
+                  {a.mutual ? (
+                    <button
+                      className="text-rose-deep font-bold text-sm"
+                      onClick={() => {
+                        logEvent("saved_meet_clicked", { mutual: true });
+                        sessionStorage.setItem(
+                          "hug_target",
+                          JSON.stringify({ id: a.id, name: a.name })
+                        );
+                        router.push("/meet");
+                      }}
+                    >
+                      🤝 להיפגש
+                    </button>
+                  ) : (
+                    <button
+                      className="text-rose-deep font-bold text-sm"
+                      onClick={() => showInterest(a.id, a.opposition)}
+                    >
+                      🔥 גם אני!
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {savedList.length > 0 && (
           <div className="w-full max-w-sm mt-6">
             <h2 className="font-bold text-rose-deep text-right mb-2">
-              ⭐ שמורים למפגש ({savedList.length})
+              ⭐ מעניינים אותי ({savedList.length})
             </h2>
             <div className="flex flex-col gap-2">
               {savedList.map((s) => (

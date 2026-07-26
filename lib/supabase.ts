@@ -53,3 +53,5 @@ export type SavedPerson = {
   distance_m: number | null;
   active: boolean;
 };
+
+export type Admirer = SavedPerson & { mutual: boolean };
