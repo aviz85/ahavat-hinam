@@ -36,6 +36,7 @@ for (const u of targets) {
     to: u.email,
     subject: `🧪 ${u.name}, יש חדש באהבת חינם — ואנחנו רוצים לשמוע ממך`,
     html: html(u.name, u.id),
+    uid: u.id,
   });
   if (ok) sent++; else { failed++; console.log("FAIL", u.email, error); }
   console.log(u.email, "->", ok ? "sent" : "FAILED");

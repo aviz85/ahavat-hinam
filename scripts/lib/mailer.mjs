@@ -36,7 +36,21 @@ export function complianceFooter(uid) {
 }
 
 // Sends one email via Resend and returns { ok, error }.
-export async function sendResendEmail({ to, subject, html }) {
+//
+// Defense in depth: if `uid` is passed (and transactional is not set), this
+// re-checks Supabase for email_opt_out IMMEDIATELY before sending — not just
+// once when the recipient list was built. A bulk send can take minutes; this
+// protects against someone unsubscribing mid-run. Pass transactional: true
+// only for account/auth emails the user needs regardless of opt-out status.
+export async function sendResendEmail({ to, subject, html, uid, transactional = false }) {
+  if (uid && !transactional) {
+    const { data } = await adminClient()
+      .from("profiles")
+      .select("email_opt_out")
+      .eq("id", uid)
+      .maybeSingle();
+    if (data?.email_opt_out) return { ok: false, skipped: true, error: "recipient opted out" };
+  }
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
