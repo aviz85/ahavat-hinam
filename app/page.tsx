@@ -375,7 +375,8 @@ export default function Onboarding() {
         <a className="underline" href="/privacy" target="_blank">
           למדיניות הפרטיות
         </a>
-        .
+        . מדי פעם נשלח עדכונים על האפליקציה למייל שלכם — אפשר להסיר את עצמכם
+        בלחיצה אחת בכל עת.
       </p>
       <button className="text-foreground/50 font-medium" onClick={() => setStep(step - 1)}>
         → חזרה
