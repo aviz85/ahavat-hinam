@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
+import CampaignBanner from "@/components/CampaignBanner";
 import { logEvent } from "@/lib/events";
 
 type Target = { id: string; name: string } | null;
@@ -106,6 +107,7 @@ export default function Hug() {
   return (
     <div className="flex-1 flex flex-col">
       <main className="flex-1 flex flex-col items-center px-6 py-8 gap-5 max-w-md mx-auto w-full">
+        <CampaignBanner />
         <h1 className="text-3xl font-black text-rose-deep text-center">
           סלפי החיבוק 🤳
         </h1>

@@ -41,6 +41,7 @@ export type Hug = {
   points: number;
   verified: boolean;
   created_at: string;
+  is_campaign: boolean;
 };
 
 export type SavedPerson = {

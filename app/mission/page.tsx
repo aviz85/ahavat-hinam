@@ -8,6 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import InviteButton from "@/components/InviteButton";
 import { enableProximityPush, isPushEnabled } from "@/lib/push";
 import { logEvent } from "@/lib/events";
+import CampaignBanner from "@/components/CampaignBanner";
 
 type Status = "loading" | "no-location" | "searching" | "found" | "empty" | "error";
 
@@ -87,6 +88,7 @@ export default function Mission() {
   return (
     <div className="flex-1 flex flex-col">
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center gap-5">
+        <CampaignBanner />
         {status === "loading" || status === "searching" ? (
           <>
             <div className="text-6xl float">🔍</div>

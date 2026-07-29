@@ -49,7 +49,7 @@ export default function Feed() {
       const { data } = await sb
         .from("hugs")
         .select(
-          "id, hugger_name, hugger_emoji, hugged_name, image_path, caption, points, verified, created_at"
+          "id, hugger_name, hugger_emoji, hugged_name, image_path, caption, points, verified, created_at, is_campaign"
         )
         .order("created_at", { ascending: false })
         .limit(50);
@@ -137,6 +137,9 @@ export default function Feed() {
                       {timeAgo(h.created_at)}
                       {h.verified && (
                         <span className="text-green-700 font-bold"> · ✅ מפגש מאומת</span>
+                      )}
+                      {h.is_campaign && (
+                        <span className="text-rose-deep font-bold"> · 💕 ט״ו באב</span>
                       )}
                     </p>
                   </div>
