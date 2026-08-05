@@ -171,8 +171,13 @@ export default function Mission() {
                   <div className="text-sm text-foreground/60">מכאן</div>
                 </div>
               </div>
+              <p className="text-sm font-bold text-rose-deep">
+                🏅 חיבוק עם {match.name} שווה {oppositionPct} נקודות
+              </p>
+
+              {/* primary path — one obvious next step */}
               <button
-                className="btn-primary"
+                className="btn-primary w-full text-lg mt-1"
                 onClick={() => {
                   logEvent("navigate_clicked", { distance_m: Math.round(match.distance_m) });
                   sessionStorage.setItem(
@@ -182,68 +187,61 @@ export default function Mission() {
                   router.push("/meet");
                 }}
               >
-                🧭 יוצאים להיפגש — ניווט חי
+                🧭 יוצאים להיפגש
               </button>
               <a
-                className="text-foreground/50 text-sm underline"
+                className="text-foreground/40 text-xs underline"
                 href={`https://maps.google.com/maps?daddr=${match.lat},${match.lng}&dirflg=w`}
                 target="_blank"
                 rel="noreferrer"
               >
-                או במפות גוגל (אזור משוער)
+                נווטו במפות גוגל במקום (אזור משוער)
               </a>
-              <button
-                className="text-foreground/60 text-sm underline"
-                disabled={dashSent}
-                onClick={async () => {
-                  const sb = supabase();
-                  const { data: sess } = await sb.auth.getSession();
-                  if (!sess.session) return;
-                  const { error } = await sb.from("saved_people").insert({
-                    user_id: sess.session.user.id,
-                    saved_id: match.id,
-                  });
-                  if (error && error.code !== "23505") return;
-                  logEvent("interest_sent", { source: "match_card" });
-                  sb.functions
-                    .invoke("notify-interest", { body: { saved_id: match.id } })
-                    .catch(() => {});
-                  setDashSent(true);
-                }}
-              >
-                {dashSent
-                  ? '⭐ נשמר! נעדכן אם תהיו קרובים במקרה (באישורו)'
-                  : '⭐ לא מסתדר עכשיו? שמרו לעתיד'}
-              </button>
             </div>
-            <p className="max-w-xs text-foreground/70">
-              המשימה: להגיע, להציג את עצמכם, לתת חיבוק אמיתי — ולצלם סלפי ביחד!
-            </p>
+
+            {/* secondary path — an explicit alternative, not stacked onto the primary one */}
             <button
-              className="card px-4 py-2 text-sm text-foreground/70"
-              onClick={() => router.push("/profile")}
-            >
-              📷 העלו תמונת פרופיל — כדי ש{match.name} יזהה אתכם בשטח
-            </button>
-            <p className="font-bold text-rose-deep">
-              🏅 החיבוק הזה שווה {oppositionPct} נקודות!
-            </p>
-            <button
-              className="btn-primary text-xl"
-              onClick={() => {
-                logEvent("hug_started", { opposition: match.opposition });
-                sessionStorage.setItem(
-                  "hug_target",
-                  JSON.stringify({ id: match.id, name: match.name })
-                );
-                router.push("/hug");
+              className="text-foreground/60 text-sm underline"
+              disabled={dashSent}
+              onClick={async () => {
+                const sb = supabase();
+                const { data: sess } = await sb.auth.getSession();
+                if (!sess.session) return;
+                const { error } = await sb.from("saved_people").insert({
+                  user_id: sess.session.user.id,
+                  saved_id: match.id,
+                });
+                if (error && error.code !== "23505") return;
+                logEvent("interest_sent", { source: "match_card" });
+                sb.functions
+                  .invoke("notify-interest", { body: { saved_id: match.id } })
+                  .catch(() => {});
+                setDashSent(true);
               }}
             >
-              נפגשנו! מצלמים סלפי 🤳
+              {dashSent
+                ? "⭐ נשמר! נעדכן אם תהיו קרובים במקרה"
+                : "לא מסתדר עכשיו? שמרו לפגישה עתידית ⭐"}
             </button>
-            <button className="text-foreground/50 font-medium" onClick={search}>
-              חפשו מישהו אחר 🔄
-            </button>
+
+            <div className="flex flex-col gap-1 mt-2">
+              <button className="text-foreground/40 text-xs" onClick={search}>
+                🔄 חפשו מישהו אחר
+              </button>
+              <button
+                className="text-foreground/40 text-xs"
+                onClick={() => {
+                  logEvent("hug_started", { opposition: match.opposition, source: "already_together" });
+                  sessionStorage.setItem(
+                    "hug_target",
+                    JSON.stringify({ id: match.id, name: match.name })
+                  );
+                  router.push("/hug");
+                }}
+              >
+                כבר איתו/ה עכשיו? דלגו ישר לסלפי 🤳
+              </button>
+            </div>
           </>
         ) : null}
         {pushState === "off" && (status === "found" || status === "empty") && (
